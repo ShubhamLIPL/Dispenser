@@ -1,4 +1,25 @@
 <resources>
-    <string name="app_name">Simple USB Terminal</string>
-    <string name="devices">USB Devices</string>
+    <string name="app_name">ExperimentalOTA</string>
+    <string name="login">Login</string>
+    <string name="email_id">Email-id</string>
+    <string name="password">Password</string>
+    <string name="confirmPassword">Confirm Password</string>
+    <string name="loginButton">Login</string>
+    <string name="signupButton">Signup</string>
+    <string name="forgot_your_password">Forgot your password?</string>
+    <string name="signup">Don\'t have an account? Sign Up</string>
+    <string name="loginText">Already have an account? Login</string>
+    <string name="signupText">SignUp</string>
+    <string name="firstName">first name</string>
+    <string name="lastName">last name</string>
+    <string name="connect">Connect</string>
+    <string name="ota">OTA</string>
+    <string name="description">Description:</string>
+    <string name="manufacture">Manufacture:</string>
+    <string name="productName">Product Name:</string>
+    <string name="portError">Port Error:</string>
+    <string name="receivedFromDevice">Received From Device:</string>
+    <string name="masterDataLen">Master Data Len:</string>
+    <string name="eventsCounts">Events Counts:</string>
+    <string name="events">Events:</string>
 </resources>
