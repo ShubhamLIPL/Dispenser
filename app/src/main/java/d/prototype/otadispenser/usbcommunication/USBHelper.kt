@@ -132,6 +132,8 @@ object USBHelper {
         }
     }
 
+    // USBHelper.kt
+
     fun receiveData(context: Context, callback: () -> Unit) {
         val connection = usbDeviceConnection ?: return
         val endpointIn = usbEndpointIn ?: return
@@ -143,13 +145,12 @@ object USBHelper {
 
             while (!allDataReceived) {
                 val receivedBytes = connection.bulkTransfer(endpointIn, buffer, buffer.size, 10000)
-
                 if (receivedBytes > 0) {
                     val rawData = buffer.copyOf(receivedBytes).decodeToString().trim()
-                    Log.d("USBHelper", "Raw Received Data: $rawData")
+                    Log.d("USBHelper", "Received Data: $rawData")
 
                     if (rawData.contains("FINISH")) {
-                        Log.d("USBHelper", "Final FINISH Command Received. Stopping Data Reception.")
+                        Log.d("USBHelper", "FINISH received, stopping reception.")
                         allDataReceived = true
                         break
                     }
@@ -157,24 +158,26 @@ object USBHelper {
                     val parsedData = parseDeviceData(rawData)
                     if (parsedData != null) {
                         repository?.insertParsedData(parsedData)
-                        withContext(Dispatchers.Main) {
-                            callback()
-                        }
+                        withContext(Dispatchers.Main) { callback() }
 
-                        // Send ACK after each successful data receipt
+                        // Send ACK for each successful data receipt
                         val ack = byteArrayOf(0xFF.toByte())
                         val result = connection.bulkTransfer(endpointOut, ack, ack.size, 5000)
                         if (result >= 0) {
-                            Log.d("USBHelper", "ACK 0xFF sent successfully!")
+                            Log.d("USBHelper", "ACK 0xFF sent!")
                         } else {
-                            Log.e("USBHelper", "Failed to send ACK")
+                            Log.e("USBHelper", "Failed to send ACK!")
                             break
                         }
                     }
+                } else {
+                    Log.e("USBHelper", "No data received.")
+                    break
                 }
             }
         }
     }
+
 
     private fun parseDeviceData(rawData: String): UsbTransaction? {
         try {
