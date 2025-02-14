@@ -7,8 +7,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#E0ECF4"
-    android:fitsSystemWindows="true"
-    tools:context=".activities.MainActivity">
+    android:fitsSystemWindows="true">
 
     <!-- Connect USB Button -->
     <Button
@@ -62,20 +61,20 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/etDispenserId"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/btnSaveExcel"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/btnClearData">
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/etDispenserId">
 
         <TextView
             android:id="@+id/tvReceivedData"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Received Data:"
-            android:textSize="16sp"
-            android:textColor="@android:color/black"
+            android:background="@android:color/white"
             android:padding="12dp"
-            android:background="@android:color/white"/>
+            android:text="Received Data:"
+            android:textColor="@android:color/black"
+            android:textSize="16sp" />
     </androidx.core.widget.NestedScrollView>
 
     <!-- Save to Excel Button -->

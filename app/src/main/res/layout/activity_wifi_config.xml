@@ -1,0 +1,53 @@
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <EditText
+            android:id="@+id/editWifiSSID"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="WiFi SSID"
+            android:layout_marginBottom="12dp"
+            android:inputType="text" />
+
+        <EditText
+            android:id="@+id/editWifiPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="WiFi Password"
+            android:layout_marginBottom="12dp"
+            android:inputType="textPassword" />
+
+        <EditText
+            android:id="@+id/editIpAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="IP Address"
+            android:layout_marginBottom="12dp"
+            android:inputType="text" />
+
+        <EditText
+            android:id="@+id/editPortNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Port Number"
+            android:layout_marginBottom="12dp"
+            android:inputType="number" />
+
+        <Button
+            android:id="@+id/btnSubmitConfig"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Submit"
+            android:backgroundTint="@color/buttonColor"
+            android:textColor="@android:color/white"
+            android:padding="12dp" />
+    </LinearLayout>
+</ScrollView>

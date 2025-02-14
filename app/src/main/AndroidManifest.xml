@@ -5,32 +5,33 @@
     <!-- Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USB_PERMISSION" />
-
     <!-- USB Feature -->
     <uses-feature android:name="android.hardware.usb.host" />
 
     <application
         android:label="@string/app_name"
         android:theme="@style/Base.Theme.DemoOTAApp"
+        android:requestLegacyExternalStorage="true"
         tools:ignore="AllowBackup,GoogleAppIndexingWarning" >
 
         <activity
-            android:name=".activities.EspOtaActivity"
+            android:name="d.prototype.otadispenser.activities.EspOtaActivity"
             android:exported="false" />
 
         <activity
-            android:name=".activities.WiFiConfigActivity"
+            android:name="d.prototype.otadispenser.activities.WiFiConfigActivity"
             android:exported="false" />
 
         <!-- Home Activity -->
         <activity
-            android:name=".activities.MainActivity"
+            android:name="d.prototype.otadispenser.activities.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="stateHidden|adjustResize">
@@ -51,7 +52,7 @@
 
         <!-- USB Service -->
         <service
-            android:name=".usbcommunication.SerialService"
+            android:name="d.prototype.otadispenser.usbcommunication.SerialService"
             android:foregroundServiceType="remoteMessaging|connectedDevice"
             tools:ignore="ForegroundServicePermission" />
 

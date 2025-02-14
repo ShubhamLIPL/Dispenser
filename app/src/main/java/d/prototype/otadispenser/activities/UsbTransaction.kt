@@ -1,4 +1,4 @@
-package d.prototype.ota.activities
+package d.prototype.otadispenser.activities
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

@@ -1,4 +1,4 @@
-package d.prototype.ota.activities
+package d.prototype.otadispenser.activities
 
 import android.content.Context
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential

@@ -1,11 +1,11 @@
-package d.prototype.ota.activities
+package d.prototype.otadispenser.activities
 
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [UsbTransaction::class], version = 6, exportSchema = false)
+@Database(entities = [UsbTransaction::class], version = 7, exportSchema = false)
 abstract class UsbDatabase : RoomDatabase() {
     abstract fun usbTransactionDao(): UsbDataDao
 

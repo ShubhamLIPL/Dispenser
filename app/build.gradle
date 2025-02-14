@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    compileSdkVersion 34
+    compileSdkVersion 35
     defaultConfig {
         targetSdkVersion 34
         minSdkVersion 27
         vectorDrawables.useSupportLibrary true
 
-        applicationId "d.prototype.ota"
+        applicationId "d.prototype.otadispenser"
         versionCode 1
         versionName "1.0"
     }
@@ -34,7 +34,7 @@ android {
         exclude 'META-INF/NOTICE.txt'
         exclude 'META-INF/notice.txt'
     }
-    namespace 'd.prototype.ota'
+    namespace 'd.prototype.otaotadispenser'
     kotlinOptions {
         jvmTarget = '1.8'
     }
