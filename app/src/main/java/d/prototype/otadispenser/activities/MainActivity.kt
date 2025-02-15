@@ -105,7 +105,7 @@ class MainActivity : AppCompatActivity() {
                 val sheet = workbook.getSheetAt(0) ?: throw Exception("No sheet found in file")
 
                 val transactions = mutableListOf<TransactionData>()
-                for (rowIndex in 1..sheet.lastRowNum) {
+                for (rowIndex in sheet.lastRowNum downTo 1) {        // changed from last to first
                     val row = sheet.getRow(rowIndex) ?: continue
                     try {
                         val transaction = TransactionData(
