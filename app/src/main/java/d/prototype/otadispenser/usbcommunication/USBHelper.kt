@@ -140,6 +140,50 @@ object USBHelper {
 
     // USBHelper.kt
 
+//    fun receiveData(context: Context, callback: () -> Unit) {
+//        val connection = usbDeviceConnection ?: return
+//        val endpointIn = usbEndpointIn ?: return
+//        val endpointOut = usbEndpointOut ?: return
+//
+//        CoroutineScope(Dispatchers.IO).launch {
+//            val buffer = ByteArray(4096)
+//            var allDataReceived = false
+//
+//            while (!allDataReceived) {
+//                val receivedBytes = connection.bulkTransfer(endpointIn, buffer, buffer.size, 10000)
+//                if (receivedBytes > 0) {
+//                    val rawData = buffer.copyOf(receivedBytes).decodeToString().trim()
+//                    Log.d("Dharmik", "Received Data: $rawData")
+//
+//                    if (rawData.contains("FINISH")) {
+//                        Log.d("Dharmik", "FINISH received, stopping reception.")
+//                        allDataReceived = true
+//                        break
+//                    }
+//
+//                    val parsedData = parseDeviceData(rawData)
+//                    if (parsedData != null) {
+//                        repository?.insertParsedData(parsedData)
+//                        withContext(Dispatchers.Main) { callback() }
+//
+//                        // Send ACK for each successful data receipt
+//                        val ack = byteArrayOf(0xFF.toByte())
+//                        val result = connection.bulkTransfer(endpointOut, ack, ack.size, 5000)
+//                        if (result >= 0) {
+//                            Log.d("USBHelper", "ACK 0xFF sent!")
+//                        } else {
+//                            Log.e("USBHelper", "Failed to send ACK!")
+//                            break
+//                        }
+//                    }
+//                } else {
+//                    Log.e("USBHelper", "No data received.")
+//                    break
+//                }
+//            }
+//        }
+//    }
+
     fun receiveData(context: Context, callback: () -> Unit) {
         val connection = usbDeviceConnection ?: return
         val endpointIn = usbEndpointIn ?: return
@@ -147,35 +191,54 @@ object USBHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             val buffer = ByteArray(4096)
+            val stringBuilder = StringBuilder()  // Buffer for partial data
             var allDataReceived = false
 
             while (!allDataReceived) {
                 val receivedBytes = connection.bulkTransfer(endpointIn, buffer, buffer.size, 10000)
                 if (receivedBytes > 0) {
                     val rawData = buffer.copyOf(receivedBytes).decodeToString().trim()
-                    Log.d("Dharmik", "Received Data: $rawData")
+                    Log.d("Dharmik", "Received Data Chunk: $rawData")
 
-                    if (rawData.contains("FINISH")) {
-                        Log.d("Dharmik", "FINISH received, stopping reception.")
-                        allDataReceived = true
-                        break
-                    }
+                    // Append the chunk to buffer
+                    stringBuilder.append(rawData)
 
-                    val parsedData = parseDeviceData(rawData)
-                    if (parsedData != null) {
-                        repository?.insertParsedData(parsedData)
-                        withContext(Dispatchers.Main) { callback() }
+                    // Process complete messages
+                    var dataString = stringBuilder.toString()
+                    var startIndex = dataString.indexOf(":*;")
+                    var endIndex = dataString.indexOf("#")
 
-                        // Send ACK for each successful data receipt
-                        val ack = byteArrayOf(0xFF.toByte())
-                        val result = connection.bulkTransfer(endpointOut, ack, ack.size, 5000)
-                        if (result >= 0) {
-                            Log.d("USBHelper", "ACK 0xFF sent!")
+                    while (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+                        val completeMessage = dataString.substring(startIndex, endIndex + 1)
+                        Log.d("Dharmik", "Complete Message: $completeMessage")
+
+                        val parsedData = parseDeviceData(completeMessage)
+                        if (parsedData != null) {
+                            repository?.insertParsedData(parsedData)
+                            withContext(Dispatchers.Main) { callback() }
+
+                            // Send ACK
+                            val ack = byteArrayOf(0xFF.toByte())
+                            val result = connection.bulkTransfer(endpointOut, ack, ack.size, 5000)
+                            if (result >= 0) {
+                                Log.d("USBHelper", "ACK 0xFF sent!")
+                            } else {
+                                Log.e("USBHelper", "Failed to send ACK!")
+                                break
+                            }
                         } else {
-                            Log.e("USBHelper", "Failed to send ACK!")
-                            break
+                            Log.e("USBHelper", "Invalid data format received: $completeMessage")
                         }
+
+                        // Remove the processed message from the buffer
+                        dataString = dataString.substring(endIndex + 1)
+                        startIndex = dataString.indexOf(":*;")
+                        endIndex = dataString.indexOf("#")
                     }
+
+                    // Save the remaining partial data for the next chunk
+                    stringBuilder.clear()
+                    stringBuilder.append(dataString)
                 } else {
                     Log.e("USBHelper", "No data received.")
                     break
@@ -183,6 +246,7 @@ object USBHelper {
             }
         }
     }
+
 
 
     private fun parseDeviceData(rawData: String): UsbTransaction? {
