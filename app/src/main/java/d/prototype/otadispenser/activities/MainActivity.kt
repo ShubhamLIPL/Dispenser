@@ -184,10 +184,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildUsbCommand(transaction: TransactionData): String {
-        return "${transaction.availableSize};${transaction.size};${transaction.amount};${transaction.volume};" +
+        val commandBody =  "${transaction.availableSize};${transaction.size};${transaction.amount};${transaction.volume};" +
                 "${transaction.concentration};${transaction.attendantId};${transaction.customerId};${transaction.lastFlowCount};" +
                 "${transaction.epoch};${transaction.pid};${transaction.flag};${transaction.transactionId};" +
                 "${transaction.transactionType};${transaction.vehicleId}"
+
+        return "$commandBody"
     }
 
     private fun showToast(message: String) {

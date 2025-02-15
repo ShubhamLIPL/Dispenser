@@ -82,27 +82,27 @@ object USBHelper {
         val endpoint = usbEndpointOut
         if (connection == null || endpoint == null) return false
 
-        val commandBytes = if (command.startsWith("0x")) {
-            byteArrayOf(command.removePrefix("0x").toInt(16).toByte())
-        } else {
-            command.toByteArray(Charsets.UTF_8)
-        }
+        // Convert command to bytes with proper markers
+        val startBytes = byteArrayOf(0x3A, 0x2A, 0x3B)
+        val endBytes = byteArrayOf(0x23)
+        val commandBytes = startBytes + command.toByteArray(Charsets.UTF_8) + endBytes
 
-        Log.d("USBHelper", "Sending Command: ${commandBytes.joinToString { "0x%02X".format(it) }}")
+        Log.d("Dharmik", "Sending Command: ${commandBytes.joinToString { "0x%02X".format(it) }}")
 
         var attempt = 0
         while (attempt < 3) {
             val result = connection.bulkTransfer(endpoint, commandBytes, commandBytes.size, 5000)
             if (result >= 0) {
-                Log.d("USBHelper", "Command sent successfully")
+                Log.d("Dharmik", "Command sent successfully")
                 return true
             } else {
-                Log.e("USBHelper", "Failed to send command. Attempt ${attempt + 1}")
+                Log.e("Dharmik", "Failed to send command. Attempt ${attempt + 1}")
                 attempt++
             }
         }
         return false
     }
+
 
     fun waitForAck(): Boolean {
         val connection = usbDeviceConnection ?: return false
@@ -110,13 +110,13 @@ object USBHelper {
         val ackBuffer = ByteArray(1)
 
         repeat(3) {
-            val result = connection.bulkTransfer(endpointIn, ackBuffer, ackBuffer.size, 5000)
+            val result = connection.bulkTransfer(endpointIn, ackBuffer, ackBuffer.size, 20000)
             if (result > 0 && ackBuffer[0] == 0xFF.toByte()) {
-                Log.d("USBHelper", "ACK received successfully")
+                Log.d("Dharmik", "ACK received successfully")
                 return true
             }
         }
-        Log.e("USBHelper", "ACK not received after 3 attempts")
+        Log.e("Dharmik", "ACK not received after 3 attempts")
         return false
     }
 
@@ -126,9 +126,9 @@ object USBHelper {
         val ack = byteArrayOf(0xFF.toByte())
         val result = connection.bulkTransfer(endpoint, ack, ack.size, 5000)
         if (result >= 0) {
-            Log.d("USBHelper", "ACK 0xFF sent successfully!")
+            Log.d("Dharmik", "ACK 0xFF sent successfully!")
         } else {
-            Log.e("USBHelper", "Failed to send ACK")
+            Log.e("Dharmik", "Failed to send ACK")
         }
     }
 
