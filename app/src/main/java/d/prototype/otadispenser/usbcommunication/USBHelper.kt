@@ -82,10 +82,16 @@ object USBHelper {
         val endpoint = usbEndpointOut
         if (connection == null || endpoint == null) return false
 
-        // Convert command to bytes with proper markers
-        val startBytes = byteArrayOf(0x3A, 0x2A, 0x3B)
-        val endBytes = byteArrayOf(0x23)
-        val commandBytes = startBytes + command.toByteArray(Charsets.UTF_8) + endBytes
+//        // Convert command to bytes with proper markers
+//        val startBytes = byteArrayOf(0x3A, 0x2A, 0x3B)
+//        val endBytes = byteArrayOf(0x23)
+//        val commandBytes = startBytes + command.toByteArray(Charsets.UTF_8) + endBytes
+
+        val commandBytes = if (command.startsWith("0x")) {
+            byteArrayOf(command.removePrefix("0x").toInt(16).toByte())
+        } else {
+            command.toByteArray(Charsets.UTF_8)
+        }
 
         Log.d("Dharmik", "Sending Command: ${commandBytes.joinToString { "0x%02X".format(it) }}")
 
@@ -147,10 +153,10 @@ object USBHelper {
                 val receivedBytes = connection.bulkTransfer(endpointIn, buffer, buffer.size, 10000)
                 if (receivedBytes > 0) {
                     val rawData = buffer.copyOf(receivedBytes).decodeToString().trim()
-                    Log.d("USBHelper", "Received Data: $rawData")
+                    Log.d("Dharmik", "Received Data: $rawData")
 
                     if (rawData.contains("FINISH")) {
-                        Log.d("USBHelper", "FINISH received, stopping reception.")
+                        Log.d("Dharmik", "FINISH received, stopping reception.")
                         allDataReceived = true
                         break
                     }

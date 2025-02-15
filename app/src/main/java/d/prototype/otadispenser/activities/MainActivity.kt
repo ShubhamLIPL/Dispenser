@@ -82,6 +82,7 @@ class MainActivity : AppCompatActivity() {
     private fun sendBackupCommand() {
         if (USBHelper.sendCommand("0x38")) {
             Toast.makeText(this, "Backup command sent", Toast.LENGTH_SHORT).show()
+            Log.d("Dharmik", "Backup command sent")
             USBHelper.receiveData(this) { loadReceivedData() }
         } else {
             Toast.makeText(this, "USB not connected!", Toast.LENGTH_SHORT).show()
@@ -189,7 +190,7 @@ class MainActivity : AppCompatActivity() {
                 "${transaction.epoch};${transaction.pid};${transaction.flag};${transaction.transactionId};" +
                 "${transaction.transactionType};${transaction.vehicleId}"
 
-        return "$commandBody"
+        return ":*;$commandBody#"
     }
 
     private fun showToast(message: String) {
