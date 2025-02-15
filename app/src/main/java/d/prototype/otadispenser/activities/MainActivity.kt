@@ -166,7 +166,7 @@ class MainActivity : AppCompatActivity() {
 
                 if (sent) {
                     if (USBHelper.waitForAck()) {
-                        USBHelper.sendAcknowledgment()
+//                        USBHelper.sendAcknowledgment()
                         Log.d("USBHelper", "Acknowledgment sent for ${transaction.transactionId}")
                     } else {
                         Log.e("USBHelper", "No ACK received for ${transaction.transactionId}")

@@ -110,7 +110,7 @@ object USBHelper {
         val ackBuffer = ByteArray(1)
 
         repeat(3) {
-            val result = connection.bulkTransfer(endpointIn, ackBuffer, ackBuffer.size, 20000)
+            val result = connection.bulkTransfer(endpointIn, ackBuffer, ackBuffer.size, 5000)
             if (result > 0 && ackBuffer[0] == 0xFF.toByte()) {
                 Log.d("Dharmik", "ACK received successfully")
                 return true
