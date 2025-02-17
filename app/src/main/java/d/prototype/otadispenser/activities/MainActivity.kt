@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import d.prototype.otadispenser.usbcommunication.USBHelper
 import d.prototype.otaotadispenser.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.apache.poi.poifs.crypt.EncryptionInfo
 import org.apache.poi.poifs.crypt.EncryptionMode
@@ -196,6 +197,7 @@ class MainActivity : AppCompatActivity() {
                 val sent = USBHelper.sendCommand(command)
 
                 if (sent) {
+                    delay(200)
                     if (USBHelper.waitForAck()) {
 //                        USBHelper.sendAcknowledgment()
                         Log.d("USBHelper", "Acknowledgment sent for ${transaction.transactionId}")
