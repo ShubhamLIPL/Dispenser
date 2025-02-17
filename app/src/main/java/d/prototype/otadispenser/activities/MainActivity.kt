@@ -1,6 +1,7 @@
 package d.prototype.otadispenser.activities
 
 import android.app.AlertDialog
+import android.app.ProgressDialog
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -16,12 +17,18 @@ import d.prototype.otadispenser.usbcommunication.USBHelper
 import d.prototype.otaotadispenser.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.apache.poi.poifs.crypt.EncryptionInfo
+import org.apache.poi.poifs.crypt.EncryptionMode
+import org.apache.poi.poifs.filesystem.POIFSFileSystem
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFCell
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
+import java.security.GeneralSecurityException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -35,10 +42,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvReceivedData: TextView
     private lateinit var etDispenserId: EditText
     private lateinit var repository: UsbDataRepository
+    private lateinit var progressDialog: ProgressDialog
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        progressDialog = ProgressDialog(this).apply {
+            setMessage("Sending data to device, please wait...")
+            setCancelable(false)
+            setProgressStyle(ProgressDialog.STYLE_SPINNER)
+        }
 
         repository = UsbDataRepository(applicationContext)
         USBHelper.initialize(this)
@@ -70,7 +84,8 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("OK") { _, _ ->
                 USBHelper.connectToDevice(this) { success ->
                     runOnUiThread {
-                        val message = if (success) "USB Device Connected" else "Failed to Connect USB Device"
+                        val message =
+                            if (success) "USB Device Connected" else "Failed to Connect USB Device"
                         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -93,52 +108,64 @@ class MainActivity : AppCompatActivity() {
         filePickerLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
     }
 
-    private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        uri?.let { readExcelFileAndSendToUsb(it) }
-    }
+    private val filePickerLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+            uri?.let { readExcelFileAndSendToUsb(it) }
+        }
 
     private fun readExcelFileAndSendToUsb(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val inputStream = contentResolver.openInputStream(uri) ?: throw Exception("Failed to open InputStream")
-                val workbook = XSSFWorkbook(inputStream)
-                val sheet = workbook.getSheetAt(0) ?: throw Exception("No sheet found in file")
+                val inputStream = contentResolver.openInputStream(uri)
+                    ?: throw Exception("Failed to open InputStream")
+                val fs = POIFSFileSystem(inputStream)
+                val info = EncryptionInfo(fs)
+                val decryptor = info.decryptor
 
-                val transactions = mutableListOf<TransactionData>()
-                for (rowIndex in sheet.lastRowNum downTo 1) {        // changed from last to first
-                    val row = sheet.getRow(rowIndex) ?: continue
-                    try {
-                        val transaction = TransactionData(
-                            availableSize = getCellValue(row.getCell(0))?.toIntOrNull() ?: 0,
-                            size = getCellValue(row.getCell(1))?.toIntOrNull() ?: 0,
-                            amount = getCellValue(row.getCell(2))?.toDoubleOrNull() ?: 0.0,
-                            volume = getCellValue(row.getCell(3))?.toDoubleOrNull() ?: 0.0,
-                            concentration = getCellValue(row.getCell(4))?.toDoubleOrNull() ?: 0.0,
-                            attendantId = getCellValue(row.getCell(5)) ?: "",
-                            customerId = getCellValue(row.getCell(6)) ?: "",
-                            lastFlowCount = getCellValue(row.getCell(7))?.toIntOrNull() ?: 0,
-                            epoch = getCellValue(row.getCell(8))?.toLongOrNull() ?: 0L,
-                            pid = getCellValue(row.getCell(9))?.toIntOrNull() ?: 0,
-                            flag = getCellValue(row.getCell(10))?.toIntOrNull() ?: 0,
-                            transactionId = getCellValue(row.getCell(11)) ?: "",
-                            transactionType = getCellValue(row.getCell(12)) ?: "",
-                            vehicleId = getCellValue(row.getCell(13)) ?: ""
-                        )
-                        transactions.add(transaction)
-                    } catch (e: Exception) {
-                        Log.e("Recovery", "Error parsing row $rowIndex", e)
+                if (!decryptor.verifyPassword("Leons8051")) { // Use the same password used during encryption
+                    throw GeneralSecurityException("Unable to process: document is encrypted")
+                }
+
+                decryptor.getDataStream(fs).use { dataStream ->
+                    val workbook = XSSFWorkbook(dataStream)
+                    val sheet = workbook.getSheetAt(0) ?: throw Exception("No sheet found in file")
+
+                    val transactions = mutableListOf<TransactionData>()
+                    for (rowIndex in sheet.lastRowNum downTo 1) {        // changed from last to first
+                        val row = sheet.getRow(rowIndex) ?: continue
+                        try {
+                            val transaction = TransactionData(
+                                availableSize = getCellValue(row.getCell(0))?.toIntOrNull() ?: 0,
+                                size = getCellValue(row.getCell(1))?.toIntOrNull() ?: 0,
+                                amount = getCellValue(row.getCell(2))?.toDoubleOrNull() ?: 0.0,
+                                volume = getCellValue(row.getCell(3))?.toDoubleOrNull() ?: 0.0,
+                                concentration = getCellValue(row.getCell(4))?.toDoubleOrNull()
+                                    ?: 0.0,
+                                attendantId = getCellValue(row.getCell(5)) ?: "",
+                                customerId = getCellValue(row.getCell(6)) ?: "",
+                                lastFlowCount = getCellValue(row.getCell(7))?.toIntOrNull() ?: 0,
+                                epoch = getCellValue(row.getCell(8))?.toLongOrNull() ?: 0L,
+                                pid = getCellValue(row.getCell(9))?.toIntOrNull() ?: 0,
+                                flag = getCellValue(row.getCell(10))?.toIntOrNull() ?: 0,
+                                transactionId = getCellValue(row.getCell(11)) ?: "",
+                                transactionType = getCellValue(row.getCell(12)) ?: "",
+                                vehicleId = getCellValue(row.getCell(13)) ?: ""
+                            )
+                            transactions.add(transaction)
+                        } catch (e: Exception) {
+                            Log.e("Recovery", "Error parsing row $rowIndex", e)
+                        }
+                    }
+
+                    workbook.close()
+
+                    if (transactions.isNotEmpty()) {
+                        sendTransactionsToUsb(transactions)
+                    } else {
+                        showToast("No valid data found in file!")
                     }
                 }
-
-                workbook.close()
                 inputStream.close()
-
-                if (transactions.isNotEmpty()) {
-                    sendTransactionsToUsb(transactions)
-                } else {
-                    showToast("No valid data found in file!")
-                }
-
             } catch (e: Exception) {
                 Log.e("Recovery", "Error reading file", e)
                 showToast("Error reading file!")
@@ -160,6 +187,9 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // Show progress dialog before starting the data transfer
+        runOnUiThread { progressDialog.show() }
+
         lifecycleScope.launch(Dispatchers.IO) {
             transactions.forEach { transaction ->
                 val command = buildUsbCommand(transaction)
@@ -171,24 +201,34 @@ class MainActivity : AppCompatActivity() {
                         Log.d("USBHelper", "Acknowledgment sent for ${transaction.transactionId}")
                     } else {
                         Log.e("USBHelper", "No ACK received for ${transaction.transactionId}")
-                        showToast("Transaction ${transaction.transactionId} failed: No ACK")
+                        runOnUiThread {
+                            showToast("Transaction ${transaction.transactionId} failed: No ACK")
+                            progressDialog.dismiss()  // Dismiss on failure
+                        }
                         return@launch
                     }
                 } else {
                     Log.e("USBHelper", "Failed to send transaction: ${transaction.transactionId}")
-                    showToast("Transaction ${transaction.transactionId} failed to send")
+                    runOnUiThread {
+                        showToast("Transaction ${transaction.transactionId} failed to send")
+                        progressDialog.dismiss()  // Dismiss on failure
+                    }
                     return@launch
                 }
             }
-            runOnUiThread { showToast("All transactions sent successfully!") }
+            runOnUiThread {
+                showToast("All transactions sent successfully!")
+                progressDialog.dismiss()  // Dismiss after completion
+            }
         }
     }
 
     private fun buildUsbCommand(transaction: TransactionData): String {
-        val commandBody =  "${transaction.availableSize};${transaction.size};${transaction.amount};${transaction.volume};" +
-                "${transaction.concentration};${transaction.attendantId};${transaction.customerId};${transaction.lastFlowCount};" +
-                "${transaction.epoch};${transaction.pid};${transaction.flag};${transaction.transactionId};" +
-                "${transaction.transactionType};${transaction.vehicleId}"
+        val commandBody =
+            "${transaction.availableSize};${transaction.size};${transaction.amount};${transaction.volume};" +
+                    "${transaction.concentration};${transaction.attendantId};${transaction.customerId};${transaction.lastFlowCount};" +
+                    "${transaction.epoch};${transaction.pid};${transaction.flag};${transaction.transactionId};" +
+                    "${transaction.transactionType};${transaction.vehicleId}"
 
         return ":*;$commandBody#"
     }
@@ -244,53 +284,97 @@ class MainActivity : AppCompatActivity() {
             val dispenserId = etDispenserId.text.toString().trim()
             if (dispenserId.isEmpty()) {
                 runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Enter Dispenser ID!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Enter Dispenser ID!", Toast.LENGTH_SHORT)
+                        .show()
                 }
                 return@launch
             }
 
-            val fileName = "Dispenser_${dispenserId}_${System.currentTimeMillis()}.xlsx"
-            val filePath = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), fileName)
+            val currentDateTime = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(
+                Date()
+            )
+            val fileName = "Dispenser_${dispenserId}_${currentDateTime}.xlsx"
+            val filePath = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+                fileName
+            )
 
-            XSSFWorkbook().use { workbook ->
-                val sheet = workbook.createSheet("Transaction Data")
+            try {
+                XSSFWorkbook().use { workbook ->
+                    val sheet = workbook.createSheet("Transaction Data")
 
-                // **✅ Write Headers**
-                val headerRow = sheet.createRow(0)
-                val headers = listOf(
-                    "Available Size", "Size", "Amount", "Volume", "Concentration",
-                    "Attendant ID", "Customer ID", "Last Flowcount", "Epoch",
-                    "PID", "Flag", "Transaction ID", "Transaction Type", "Vehicle ID"
-                )
-                headers.forEachIndexed { index, title -> headerRow.createCell(index).setCellValue(title) }
-
-                // **✅ Write Each Transaction in a New Row**
-                transactions.forEachIndexed { rowIndex, transaction ->
-                    val dataRow = sheet.createRow(rowIndex + 1) // +1 because first row is for headers
-                    val transactionData = listOf(
-                        transaction.availableSize, transaction.size, transaction.amount, transaction.volume,
-                        transaction.concentration, transaction.attendantId, transaction.customerId,
-                        transaction.lastFlowCount, transaction.epoch, transaction.pid, transaction.flag,
-                        transaction.transactionId, transaction.transactionType, transaction.vehicleId
+                    // Write Headers
+                    val headerRow = sheet.createRow(0)
+                    val headers = listOf(
+                        "Available Size", "Size", "Amount", "Volume", "Concentration",
+                        "Attendant ID", "Customer ID", "Last Flowcount", "Epoch",
+                        "PID", "Flag", "Transaction ID", "Transaction Type", "Vehicle ID"
                     )
+                    headers.forEachIndexed { index, title ->
+                        headerRow.createCell(index).setCellValue(title)
+                    }
 
-                    transactionData.forEachIndexed { colIndex, value ->
-                        dataRow.createCell(colIndex).setCellValue(value.toString())
+                    // Write Each Transaction in a New Row
+                    transactions.forEachIndexed { rowIndex, transaction ->
+                        val dataRow = sheet.createRow(rowIndex + 1)
+                        val transactionData = listOf(
+                            transaction.availableSize,
+                            transaction.size,
+                            transaction.amount,
+                            transaction.volume,
+                            transaction.concentration,
+                            transaction.attendantId,
+                            transaction.customerId,
+                            transaction.lastFlowCount,
+                            transaction.epoch,
+                            transaction.pid,
+                            transaction.flag,
+                            transaction.transactionId,
+                            transaction.transactionType,
+                            transaction.vehicleId
+                        )
+
+                        transactionData.forEachIndexed { colIndex, value ->
+                            dataRow.createCell(colIndex).setCellValue(value.toString())
+                        }
+                    }
+
+                    val fs = POIFSFileSystem()
+                    val info = EncryptionInfo(EncryptionMode.agile)
+                    val encryptor = info.encryptor
+                    encryptor.confirmPassword("Leons8051") // Securely handle your password
+
+                    // Write the encrypted data directly to the file
+                    FileOutputStream(filePath).use { fos ->
+                        encryptor.getDataStream(fs).use { encryptedStream ->
+                            workbook.write(encryptedStream)
+                        }
+                        fs.writeFilesystem(fos)
+                    }
+
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Encrypted Excel saved: ${filePath.absolutePath}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
 
-                // **✅ Save File**
-                FileOutputStream(filePath).use { workbook.write(it) }
-            }
-
-            runOnUiThread {
-                Toast.makeText(this@MainActivity, "Excel saved: ${filePath.absolutePath}", Toast.LENGTH_SHORT).show()
-            }
-
-            // **✅ Clear Database After Saving**
-            repository.clearAllTransactions()
-            runOnUiThread {
-                Toast.makeText(this@MainActivity, "Database Cleared!", Toast.LENGTH_SHORT).show()
+                repository.clearAllTransactions()
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "Database Cleared!", Toast.LENGTH_SHORT)
+                        .show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Error saving encrypted Excel file!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }

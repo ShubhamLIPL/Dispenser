@@ -63,7 +63,6 @@
         android:layout_marginTop="8dp"
         app:layout_constraintBottom_toTopOf="@+id/btnSaveExcel"
         app:layout_constraintEnd_toEndOf="parent"
-        android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/etDispenserId">
 
@@ -107,7 +106,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Clear Data"
-        android:visibility="gone"
         android:layout_marginTop="8dp"
         app:layout_constraintBottom_toTopOf="@id/btnReleaseUsb"
         app:layout_constraintStart_toStartOf="parent"

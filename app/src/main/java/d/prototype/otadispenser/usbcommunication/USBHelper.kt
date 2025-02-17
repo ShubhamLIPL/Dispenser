@@ -97,7 +97,7 @@ object USBHelper {
 
         var attempt = 0
         while (attempt < 3) {
-            val result = connection.bulkTransfer(endpoint, commandBytes, commandBytes.size, 5000)
+            val result = connection.bulkTransfer(endpoint, commandBytes, commandBytes.size, 10000)
             if (result >= 0) {
                 Log.d("Dharmik", "Command sent successfully")
                 return true
