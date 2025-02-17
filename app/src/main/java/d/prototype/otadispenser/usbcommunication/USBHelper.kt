@@ -82,16 +82,27 @@ object USBHelper {
         val endpoint = usbEndpointOut
         if (connection == null || endpoint == null) return false
 
-        val commandBytes = command.toByteArray(Charsets.UTF_8)
+//        // Convert command to bytes with proper markers
+//        val startBytes = byteArrayOf(0x3A, 0x2A, 0x3B)
+//        val endBytes = byteArrayOf(0x23)
+//        val commandBytes = startBytes + command.toByteArray(Charsets.UTF_8) + endBytes
+
+        val commandBytes = if (command.startsWith("0x")) {
+            byteArrayOf(command.removePrefix("0x").toInt(16).toByte())
+        } else {
+            command.toByteArray(Charsets.UTF_8)
+        }
+
+        Log.d("Dharmik", "Sending Command: ${commandBytes.joinToString { "0x%02X".format(it) }}")
+
         var attempt = 0
         while (attempt < 3) {
-            val result = connection.bulkTransfer(endpoint, commandBytes, commandBytes.size, 30000) // Increased timeout
+            val result = connection.bulkTransfer(endpoint, commandBytes, commandBytes.size, 5000)
             if (result >= 0) {
-                Log.d("USBHelper", "Command sent successfully")
-                clearUsbBuffer(connection)  // Clear buffer after each command
+                Log.d("Dharmik", "Command sent successfully")
                 return true
             } else {
-                Log.e("USBHelper", "Failed to send command. Attempt ${attempt + 1}")
+                Log.e("Dharmik", "Failed to send command. Attempt ${attempt + 1}")
                 attempt++
             }
         }
