@@ -6,8 +6,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +46,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etDispenserId: EditText
     private lateinit var repository: UsbDataRepository
     private lateinit var progressDialog: ProgressDialog
+    private lateinit var progressBar: ProgressBar
+    private lateinit var tvProgress: TextView
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +72,8 @@ class MainActivity : AppCompatActivity() {
         btnSaveExcel = findViewById(R.id.btnSaveExcel)
         tvReceivedData = findViewById(R.id.tvReceivedData)
         etDispenserId = findViewById(R.id.etDispenserId)
+        progressBar = findViewById(R.id.progressBar)
+        tvProgress = findViewById(R.id.tvProgress)
 
         btnConnectUsb.setOnClickListener { showConnectionDialog() }
         btnBackup.setOnClickListener { sendBackupCommand() }
@@ -153,6 +160,7 @@ class MainActivity : AppCompatActivity() {
                                 vehicleId = getCellValue(row.getCell(13)) ?: ""
                             )
                             transactions.add(transaction)
+                            println("Transactions : $transaction")
                         } catch (e: Exception) {
                             Log.e("Recovery", "Error parsing row $rowIndex", e)
                         }
@@ -188,42 +196,53 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Show progress dialog before starting the data transfer
-        runOnUiThread { progressDialog.show() }
+        runOnUiThread {
+            progressBar.visibility = View.VISIBLE
+            tvProgress.visibility = View.VISIBLE
+            progressBar.max = transactions.size
+            tvProgress.text = "0/${transactions.size} Transactions"
+        }
 
         lifecycleScope.launch(Dispatchers.IO) {
-            transactions.forEach { transaction ->
+            var completed = 0
+            for (transaction in transactions) {
                 val command = buildUsbCommand(transaction)
                 val sent = USBHelper.sendCommand(command)
 
                 if (sent) {
-                    delay(200)
                     if (USBHelper.waitForAck()) {
-//                        USBHelper.sendAcknowledgment()
+                        completed++
+                        runOnUiThread {
+                            progressBar.progress = completed
+                            tvProgress.text = "$completed/${transactions.size} Transactions"
+                        }
                         Log.d("USBHelper", "Acknowledgment sent for ${transaction.transactionId}")
                     } else {
-                        Log.e("USBHelper", "No ACK received for ${transaction.transactionId}")
                         runOnUiThread {
                             showToast("Transaction ${transaction.transactionId} failed: No ACK")
-                            progressDialog.dismiss()  // Dismiss on failure
+                            progressBar.visibility = View.GONE
+                            tvProgress.visibility = View.GONE
                         }
                         return@launch
                     }
                 } else {
-                    Log.e("USBHelper", "Failed to send transaction: ${transaction.transactionId}")
                     runOnUiThread {
                         showToast("Transaction ${transaction.transactionId} failed to send")
-                        progressDialog.dismiss()  // Dismiss on failure
+                        progressBar.visibility = View.GONE
+                        tvProgress.visibility = View.GONE
                     }
                     return@launch
                 }
             }
+
             runOnUiThread {
                 showToast("All transactions sent successfully!")
-                progressDialog.dismiss()  // Dismiss after completion
+                progressBar.visibility = View.GONE
+                tvProgress.visibility = View.GONE
             }
         }
     }
+
 
     private fun buildUsbCommand(transaction: TransactionData): String {
         val commandBody =

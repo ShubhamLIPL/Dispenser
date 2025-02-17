@@ -13,4 +13,5 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="statusBarColor">#03A9F4</color>
+    <color name="teal_200">#81D4FA</color>
 </resources>
