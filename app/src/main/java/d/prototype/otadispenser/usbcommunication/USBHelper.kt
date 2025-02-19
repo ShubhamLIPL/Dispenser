@@ -94,6 +94,7 @@ object USBHelper {
         }
 
         Log.d("Dharmik", "Sending Command: ${commandBytes.joinToString { "0x%02X".format(it) }}")
+        println("Command : $command")
 
         var attempt = 0
         while (attempt < 3) {
