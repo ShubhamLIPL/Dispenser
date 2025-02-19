@@ -164,11 +164,11 @@ class MainActivity : AppCompatActivity() {
             val success = USBHelper.sendCommand("0x3C")
             runOnUiThread {
                 if (success) {
-                    Toast.makeText(this@MainActivity, "Recovery Completed. 0x3C Sent!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Recovery Completed.", Toast.LENGTH_SHORT).show()
                     Log.d("USBHelper", "0x3C command sent successfully after recovery.")
                 } else {
-                    Toast.makeText(this@MainActivity, "Failed to send 0x3C after recovery!", Toast.LENGTH_SHORT).show()
-                    Log.e("USBHelper", "Failed to send 0x3C after recovery.")
+                    Toast.makeText(this@MainActivity, "Failed to send recovery.", Toast.LENGTH_SHORT).show()
+                    Log.e("USBHelper", "Failed to send recovery.")
                 }
             }
         }
