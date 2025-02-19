@@ -201,7 +201,7 @@ object USBHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             val buffer = ByteArray(4096)
-            val stringBuilder = StringBuilder()  // Buffer for partial data
+            val stringBuilder = StringBuilder()
             var allDataReceived = false
 
             while (!allDataReceived) {
@@ -209,50 +209,36 @@ object USBHelper {
                 if (receivedBytes > 0) {
                     val rawData = buffer.copyOf(receivedBytes).decodeToString().trim()
                     Log.d("Dharmik", "Received Data Chunk: $rawData")
-
-                    // Append the chunk to buffer
                     stringBuilder.append(rawData)
 
-                    // Process complete messages
                     var dataString = stringBuilder.toString()
                     var startIndex = dataString.indexOf(":*;")
-                    var endIndex = dataString.indexOf("#")
+                    var endIndex = dataString.indexOf(";#")
 
                     while (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
                         val completeMessage = dataString.substring(startIndex, endIndex + 1)
                         Log.d("Dharmik", "Complete Message: $completeMessage")
-
                         val parsedData = parseDeviceData(completeMessage)
+
                         if (parsedData != null) {
                             repository?.insertParsedData(parsedData)
-                            withContext(Dispatchers.Main) { callback() }
-
-                            // Send ACK
-                            val ack = byteArrayOf(0xFF.toByte())
-                            val result = connection.bulkTransfer(endpointOut, ack, ack.size, 5000)
-                            if (result >= 0) {
-                                Log.d("USBHelper", "ACK 0xFF sent!")
-                            } else {
-                                Log.e("USBHelper", "Failed to send ACK!")
-                                break
-                            }
-                        } else {
-                            Log.e("USBHelper", "Invalid data format received: $completeMessage")
+                            sendAcknowledgment()
                         }
 
-                        // Remove the processed message from the buffer
                         dataString = dataString.substring(endIndex + 1)
                         startIndex = dataString.indexOf(":*;")
-                        endIndex = dataString.indexOf("#")
+                        endIndex = dataString.indexOf(";#")
                     }
 
-                    // Save the remaining partial data for the next chunk
                     stringBuilder.clear()
                     stringBuilder.append(dataString)
                 } else {
-                    Log.e("USBHelper", "No data received.")
-                    break
+                    allDataReceived = true
                 }
+            }
+
+            withContext(Dispatchers.Main) {
+                callback()  // Trigger the callback once after all data is processed
             }
         }
     }

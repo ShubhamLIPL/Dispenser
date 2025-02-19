@@ -80,7 +80,11 @@ class MainActivity : AppCompatActivity() {
         btnRestore.setOnClickListener { sendRecoveryData() }  // Updated to handle recovery
         btnReleaseUsb.setOnClickListener { releaseUsbConnection() }
         btnClearData.setOnClickListener { clearReceivedData() }
-        btnSaveExcel.setOnClickListener { saveDataToExcel() }
+        btnSaveExcel.setOnClickListener {
+            val id = etDispenserId.text.toString().trim()
+            if (id.isNotEmpty()) saveDataToExcel(id)
+            else Toast.makeText(this, "Dispenser ID is required!", Toast.LENGTH_SHORT).show()
+        }
 
         loadReceivedData()
     }
@@ -104,13 +108,47 @@ class MainActivity : AppCompatActivity() {
 
     private fun sendBackupCommand() {
         if (USBHelper.sendCommand("0x38")) {
+            progressDialog.setMessage("Backing up data, please wait...")
+            progressDialog.setCancelable(false)
+            progressDialog.show() // Show the progress dialog
+
             Toast.makeText(this, "Backup command sent", Toast.LENGTH_SHORT).show()
             Log.d("Dharmik", "Backup command sent")
-            USBHelper.receiveData(this) { loadReceivedData() }
+
+            lifecycleScope.launch(Dispatchers.IO) {
+                USBHelper.receiveData(this@MainActivity) {
+                    runOnUiThread {
+                        progressDialog.dismiss() // Dismiss the progress dialog when backup completes
+                        showSaveDialog()         // Show the save dialog after backup
+                    }
+                }
+            }
         } else {
             Toast.makeText(this, "USB not connected!", Toast.LENGTH_SHORT).show()
         }
     }
+
+    private fun showSaveDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_save_excel, null)
+        val etDispenserId = dialogView.findViewById<EditText>(R.id.etDispenserId)
+
+        AlertDialog.Builder(this)
+            .setTitle("Save Backup Data")
+            .setMessage("*Note: Press OK to save the data into Excel.")
+            .setView(dialogView)
+            .setPositiveButton("OK") { _, _ ->
+                val dispenserId = etDispenserId.text.toString().trim()
+                if (dispenserId.isNotEmpty()) {
+                    saveDataToExcel(dispenserId)  // Pass dispenserId here
+                } else {
+                    Toast.makeText(this, "Dispenser ID is required!", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+
 
     private fun sendRecoveryData() {
         filePickerLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
@@ -120,6 +158,21 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let { readExcelFileAndSendToUsb(it) }
         }
+
+    private fun sendCompletionSignal() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val success = USBHelper.sendCommand("0x3C")
+            runOnUiThread {
+                if (success) {
+                    Toast.makeText(this@MainActivity, "Recovery Completed. 0x3C Sent!", Toast.LENGTH_SHORT).show()
+                    Log.d("USBHelper", "0x3C command sent successfully after recovery.")
+                } else {
+                    Toast.makeText(this@MainActivity, "Failed to send 0x3C after recovery!", Toast.LENGTH_SHORT).show()
+                    Log.e("USBHelper", "Failed to send 0x3C after recovery.")
+                }
+            }
+        }
+    }
 
     private fun readExcelFileAndSendToUsb(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
@@ -240,6 +293,7 @@ class MainActivity : AppCompatActivity() {
                 progressBar.visibility = View.GONE
                 tvProgress.visibility = View.GONE
             }
+            sendCompletionSignal()
         }
     }
 
@@ -292,7 +346,7 @@ class MainActivity : AppCompatActivity() {
 //        }
 //    }
 
-    private fun saveDataToExcel() {
+    private fun saveDataToExcel(dispenserId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val transactions = repository.getAllTransactions()
             if (transactions.isEmpty()) {
@@ -302,35 +356,21 @@ class MainActivity : AppCompatActivity() {
                 return@launch
             }
 
-            val dispenserId = etDispenserId.text.toString().trim()
-            if (dispenserId.isEmpty()) {
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Enter Dispenser ID!", Toast.LENGTH_SHORT)
-                        .show()
-                }
-                return@launch
-            }
-
-            val currentDateTime = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(
-                Date()
-            )
+            val currentDateTime = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val fileName = "Dispenser_${dispenserId}_${currentDateTime}.xlsx"
-            val filePath = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                fileName
-            )
+            val filePath = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), fileName)
 
             try {
                 XSSFWorkbook().use { workbook ->
                     val sheet = workbook.createSheet("Transaction Data")
 
                     // Write Headers
-                    val headerRow = sheet.createRow(0)
                     val headers = listOf(
                         "Available Size", "Size", "Amount", "Volume", "Concentration",
                         "Attendant ID", "Customer ID", "Last Flowcount", "Epoch",
                         "PID", "Flag", "Transaction ID", "Transaction Type", "Vehicle ID"
                     )
+                    val headerRow = sheet.createRow(0)
                     headers.forEachIndexed { index, title ->
                         headerRow.createCell(index).setCellValue(title)
                     }
@@ -339,22 +379,12 @@ class MainActivity : AppCompatActivity() {
                     transactions.forEachIndexed { rowIndex, transaction ->
                         val dataRow = sheet.createRow(rowIndex + 1)
                         val transactionData = listOf(
-                            transaction.availableSize,
-                            transaction.size,
-                            transaction.amount,
-                            transaction.volume,
-                            transaction.concentration,
-                            transaction.attendantId,
-                            transaction.customerId,
-                            transaction.lastFlowCount,
-                            transaction.epoch,
-                            transaction.pid,
-                            transaction.flag,
-                            transaction.transactionId,
-                            transaction.transactionType,
-                            transaction.vehicleId
+                            transaction.availableSize, transaction.size, transaction.amount,
+                            transaction.volume, transaction.concentration, transaction.attendantId,
+                            transaction.customerId, transaction.lastFlowCount, transaction.epoch,
+                            transaction.pid, transaction.flag, transaction.transactionId,
+                            transaction.transactionType, transaction.vehicleId
                         )
-
                         transactionData.forEachIndexed { colIndex, value ->
                             dataRow.createCell(colIndex).setCellValue(value.toString())
                         }
@@ -363,9 +393,8 @@ class MainActivity : AppCompatActivity() {
                     val fs = POIFSFileSystem()
                     val info = EncryptionInfo(EncryptionMode.agile)
                     val encryptor = info.encryptor
-                    encryptor.confirmPassword("Leons8051") // Securely handle your password
+                    encryptor.confirmPassword("Leons8051")  // Encryption password
 
-                    // Write the encrypted data directly to the file
                     FileOutputStream(filePath).use { fos ->
                         encryptor.getDataStream(fs).use { encryptedStream ->
                             workbook.write(encryptedStream)
@@ -384,17 +413,12 @@ class MainActivity : AppCompatActivity() {
 
                 repository.clearAllTransactions()
                 runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Database Cleared!", Toast.LENGTH_SHORT)
-                        .show()
+                    Toast.makeText(this@MainActivity, "Database Cleared!", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 runOnUiThread {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Error saving encrypted Excel file!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this@MainActivity, "Error saving encrypted Excel file!", Toast.LENGTH_SHORT).show()
                 }
             }
         }
